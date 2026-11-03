@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+import {encodeSet,decodeSet,digest} from './web/cloud-codec.mjs';
+const require=createRequire(import.meta.url),core=require('./web/core.js');
+const x=JSON.parse(fs.readFileSync('web/data.json','utf8'));
+core.validate(x);assert.equal(x.records.length,851);assert.equal(x.records.filter(r=>r.temporaryRemoval).length,6);
+assert.equal(x.records.filter(r=>r.classificationType==='SSP').length,16);
+const {text,chunks}=encodeSet(x);assert(chunks.length>1);assert(chunks.every(c=>Buffer.byteLength(c)<150000));
+const meta={id:x.id,label:x.label,recordCount:x.records.length,chunkCount:chunks.length,hash:await digest(text)};
+const rows=chunks.map((payload,index)=>({index,payload}));
+assert.deepEqual(await decodeSet(meta,[...rows].reverse()),x);
+await assert.rejects(()=>decodeSet(meta,rows.slice(1)),/Eksik/);
+await assert.rejects(()=>decodeSet(meta,rows.map((r,i)=>i===0?{...r,payload:'tampered'}:r)),/bütünlük/);
+const unicode={...x,label:'Türkçe 😀 '.repeat(10)};const u=encodeSet(unicode);assert.deepEqual(await decodeSet({...meta,label:unicode.label,chunkCount:u.chunks.length,hash:await digest(u.text)},u.chunks.map((payload,index)=>({index,payload}))),unicode);
+const y=structuredClone(x);y.records[0].guidance+=' updated';y.records.pop();const diff=core.compare(x,y);assert.equal(diff.changed.length,1);assert.equal(diff.removed.length,1);assert.equal(diff.same.length,849);
+const dup=structuredClone(x);dup.records.push(dup.records[0]);assert.throws(()=>core.validate(dup));
+console.log('PASS: source schema, 851 PQs, 6 temporary removals, SSP, cloud chunk size, round trip, missing/tampered rejection, Unicode, version changes, duplicate rejection.');

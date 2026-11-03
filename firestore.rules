@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // İlk Google girişinde ekranda gösterilen UID ile değiştirin.
+    function owner(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && uid == 'BURAYA_KENDI_FIREBASE_UID_DEGERINIZ';
+    }
+    match /users/{uid}/pqSets/{setId} {
+      allow read: if owner(uid);
+      allow create: if owner(uid)
+        && request.resource.data.keys().hasOnly(['id','label','recordCount','chunkCount','hash','schemaVersion','createdAt'])
+        && request.resource.data.id == setId
+        && request.resource.data.label is string
+        && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 150
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.recordCount is int
+        && request.resource.data.recordCount > 0 && request.resource.data.recordCount <= 5000
+        && request.resource.data.chunkCount is int
+        && request.resource.data.chunkCount > 0 && request.resource.data.chunkCount <= 200
+        && request.resource.data.hash is string && request.resource.data.hash.size() == 64
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+      match /chunks/{chunkId} {
+        allow read: if owner(uid);
+        allow create: if owner(uid)
+          && !exists(/databases/$(database)/documents/users/$(uid)/pqSets/$(setId))
+          && getAfter(/databases/$(database)/documents/users/$(uid)/pqSets/$(setId)).data.id == setId
+          && request.resource.data.keys().hasOnly(['index','payload'])
+          && request.resource.data.index is int && request.resource.data.index >= 0
+          && request.resource.data.index < getAfter(/databases/$(database)/documents/users/$(uid)/pqSets/$(setId)).data.chunkCount
+          && request.resource.data.payload is string && request.resource.data.payload.size() <= 150000;
+        allow update, delete: if false;
+      }
+    }
+  }
+}
