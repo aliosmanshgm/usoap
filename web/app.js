@@ -55,5 +55,6 @@ async function init(){try{const script=document.createElement('script');script.s
  await saveNewSet(candidate);pending=null;$('#commit').hidden=true;$('#importResult').textContent=cloud.isReady()?'Yeni set buluta kaydedildi. Önceki setler korundu.':'Yeni set yalnızca bu tarayıcıya kaydedildi. JSON yedeğini dışa aktarın.';render();toast('Yeni set ayrı sürüm olarak kaydedildi.');
  }catch(e){$('#importResult').textContent='Kayıt başarısız: '+cloud.errorText(e)+'. Yeni set kaydedilmiş sayılmadı; tekrar deneyebilirsiniz.'}finally{$('#commit').disabled=false}};
  const {initWordUpload}=await import('./word-upload-ui.mjs');wordController=initWordUpload({getSets:()=>sets,selectedSet:current,saveSet:saveNewSet,validate:x=>PQCore.validate(x),isCloudReady:()=>cloud.isReady(),formatRecord:(r,set)=>{const src=set.sources.find(s=>s.area===r.area);return {...r,question:formatText(r,'question',src),guidance:formatText(r,'guidance',src),references:formatText(r,'references',src)}},onSaved:()=>{render();toast('Yeni Word seti kaydedildi.')}});
+ const {initHistory}=await import('./pq-history.mjs');initHistory();
  }catch(e){$('#pool').textContent='PQ havuzu açılamadı: '+e.message}}
 init();
