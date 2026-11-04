@@ -14,12 +14,19 @@ async function refreshCloud(){
  sets=merged;remoteIds=new Set(incoming.map(x=>x.id));render();$('#cloudStatus').textContent='Bulut bağlı · '+incoming.length+' set · Son kontrol: '+new Date().toLocaleTimeString('tr-TR');
  }catch(e){$('#cloudStatus').textContent='Bulut okunamadı: '+cloud.errorText(e);toast('Mevcut kayıtlar korundu; bulut yenilenemedi.')}finally{syncing=false}
 }
+let wordController=null;
+async function saveNewSet(candidate){
+ PQCore.validate(candidate);if(sets.some(s=>s.id===candidate.id))throw Error("Bu set kimliği zaten kayıtlı.");
+ const target=cloud.isReady()?"cloud":"local";
+ if(target==="cloud"){await cloud.saveSet(candidate);remoteIds.add(candidate.id)}else{const extras=[...localSets.slice(1),candidate];localStorage.setItem(storageKey,JSON.stringify(extras));localSets.push(candidate)}
+ sets.push(candidate);selected=sets.length-1;return target;
+}
 function render(){const s=current();const removed=s.records.filter(r=>r.temporaryRemoval).length;$('#stats').innerHTML=[['Toplam PQ',s.records.length,'Kaynak setindeki tüm kayıtlar'],['Kaldırma notu olmayan',s.records.length-removed,'Geçici kaldırılmış: '+removed],['Denetim alanı + SSP',new Set(s.records.map(r=>r.area)).size,'CE ve SSP bileşenleri ayrı izlenir'],['Öncelikli PQ',s.records.filter(r=>r.ppq).length,'Kaynak belgelerde PPQ: Yes']].map(([a,b,c])=>`<div class="stat"><span>${a}</span><b>${b}</b><small>${c}</small></div>`).join('');
  const opts=sets.map((x,i)=>`<option value="${i}">${esc(x.label)}</option>`).join('');$('#version').innerHTML=opts;$('#version').value=selected;$('#old').innerHTML=opts;$('#new').innerHTML=opts;$('#old').value=0;$('#new').value=selected;
  $('#ce').innerHTML='<option value="">Tüm CE / SSP bileşenleri</option>'+[...new Set(s.records.map(r=>r.classificationType+':'+r.classification))].sort().map(v=>`<option value="${esc(v)}">${esc(v.replace(':',' · '))}</option>`).join('');
  $('#versionList').innerHTML=sets.map((x,i)=>`<div class="version-row"><div><b>${esc(x.label)}</b><p class="muted">${x.records.length} PQ · ${x.sources.length} kaynak · ${i===0?'Başlangıç seti':remoteIds.has(x.id)?'Firebase kaydı':'Bu tarayıcıya yüklenmiş set'}</p></div><button data-set="${i}">Seti aç →</button></div>`).join('');
  $('#sourceList').innerHTML=s.sources.map(x=>`<article class="source"><h2>${esc(x.area)} <span class="badge">${esc(names[x.area])}</span></h2><p>${esc(x.date)} · ${x.revision?'Revision '+esc(x.revision):'Revizyon ibaresi yok'} · ${s.records.filter(r=>r.area===x.area).length} PQ</p><p class="muted">${esc(x.filename)}</p>${selected===0?`<a href="sources/${x.area}.docx" download>Kaynak Word belgesini indir ↓</a>`:''}<p class="muted">SHA-256: <code>${esc(x.sha256||'Yüklenen sette belirtilmedi')}</code></p></article>`).join('');
- apply();}
+ apply();if(wordController)wordController.refresh();}
 function apply(){const q=norm($('#search').value.trim()),area=$('#area').value,ce=$('#ce').value,ppq=$('#ppq').value,status=$('#status').value;
  filtered=current().records.filter(r=>(!area||r.area===area)&&(!ce||r.classificationType+':'+r.classification===ce)&&(!ppq||r.ppq===(ppq==='yes'))&&(!status||(status==='removed'?r.temporaryRemoval:status==='active'?!r.temporaryRemoval:r.onSiteOnly))&&(!q||norm([r.id,r.question,r.guidance,r.references].join(' ')).includes(q)));
  const pages=Math.max(1,Math.ceil(filtered.length/size));page=Math.min(page,pages);const visible=filtered.slice((page-1)*size,page*size);
@@ -45,8 +52,8 @@ async function init(){try{const script=document.createElement('script');script.s
  $('#compare').onclick=()=>{const a=Number($('#old').value),b=Number($('#new').value);$('#diff').innerHTML=a===b?'İki farklı set seçin.':diffMarkup(PQCore.compare(sets[a],sets[b]))};
  $('#import').onchange=async()=>{pending=null;$('#commit').hidden=true;try{const file=$('#import').files[0];if(!file)return;if(file.size>15e6)throw Error('Dosya 15 MB sınırını aşıyor.');const x=PQCore.validate(JSON.parse(await file.text()));if(sets.some(s=>s.id===x.id))throw Error('Bu set kimliği zaten kayıtlı. Ayrı bir sürüm için JSON içindeki id ve label alanları farklı olmalı.');if(typeof x.id!=='string'||!/^[-a-zA-Z0-9_.]{1,100}$/.test(x.id))throw Error('Set kimliği yalnızca harf, rakam, tire, nokta ve alt çizgi içerebilir.');pending=x;$('#importResult').innerHTML='<b>'+esc(x.label)+'</b> · Doğrulama başarılı.'+diffMarkup(PQCore.compare(current(),x));$('#commit').hidden=false}catch(e){$('#importResult').textContent='Yükleme yapılamadı: '+e.message}};
  $('#commit').onclick=async()=>{if(!pending)return;const candidate=pending;$('#commit').disabled=true;try{
- if(cloud.isReady()){await cloud.saveSet(candidate);remoteIds.add(candidate.id)}else{const extras=[...localSets.slice(1),candidate];localStorage.setItem(storageKey,JSON.stringify(extras));localSets.push(candidate)}
- sets.push(candidate);selected=sets.length-1;pending=null;$('#commit').hidden=true;$('#importResult').textContent=cloud.isReady()?'Yeni set buluta kaydedildi. Önceki setler korundu.':'Yeni set yalnızca bu tarayıcıya kaydedildi. JSON yedeğini dışa aktarın.';render();toast('Yeni set ayrı sürüm olarak kaydedildi.');
+ await saveNewSet(candidate);pending=null;$('#commit').hidden=true;$('#importResult').textContent=cloud.isReady()?'Yeni set buluta kaydedildi. Önceki setler korundu.':'Yeni set yalnızca bu tarayıcıya kaydedildi. JSON yedeğini dışa aktarın.';render();toast('Yeni set ayrı sürüm olarak kaydedildi.');
  }catch(e){$('#importResult').textContent='Kayıt başarısız: '+cloud.errorText(e)+'. Yeni set kaydedilmiş sayılmadı; tekrar deneyebilirsiniz.'}finally{$('#commit').disabled=false}};
+ const {initWordUpload}=await import('./word-upload-ui.mjs');wordController=initWordUpload({getSets:()=>sets,selectedSet:current,saveSet:saveNewSet,validate:x=>PQCore.validate(x),isCloudReady:()=>cloud.isReady(),formatRecord:(r,set)=>{const src=set.sources.find(s=>s.area===r.area);return {...r,question:formatText(r,'question',src),guidance:formatText(r,'guidance',src),references:formatText(r,'references',src)}},onSaved:()=>{render();toast('Yeni Word seti kaydedildi.')}});
  }catch(e){$('#pool').textContent='PQ havuzu açılamadı: '+e.message}}
 init();
