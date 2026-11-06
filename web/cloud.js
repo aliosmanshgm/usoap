@@ -5,9 +5,11 @@ function status(text){$('#cloudStatus').textContent=text}
 function errorText(e){const messages={'auth/unauthorized-domain':'Bu site alan adı Firebase Authentication > Settings > Authorized domains listesine eklenmeli.','auth/popup-blocked':'Tarayıcı giriş penceresini engelledi. Açılır pencerelere izin verip tekrar deneyin.','auth/popup-closed-by-user':'Giriş penceresi kapatıldı.','auth/operation-not-allowed':'Firebase Authentication bölümünde Google girişini etkinleştirin.','permission-denied':'Firestore erişimi reddedildi. UID ile güvenlik kurallarını kontrol edin.','unavailable':'Firebase bağlantısı kurulamadı. İnternet bağlantısını kontrol edin.'};return messages[e.code]||e.message||String(e)}
 export function identity(){return isReady()?user.uid:null}
 export function isReady(){return !!(user&&allowedUid&&user.uid===allowedUid)}
-export async function saveSet(set){
+export const saveSet=set=>saveArchive(set,'pqSets');
+export const saveSnapshot=set=>saveArchive(set,'stateSnapshots');
+async function saveArchive(set,collectionName){
  if(!isReady())throw Error('Buluta kayıt için izin verilen Google hesabıyla giriş yapın.');
- const uid=user.uid,{text,chunks}=encodeSet(set),hash=await digest(text),ref=F.doc(db,'users',uid,'pqSets',set.id);
+ const uid=user.uid,{text,chunks}=encodeSet(set),hash=await digest(text),ref=F.doc(db,'users',uid,collectionName,set.id);
  await F.runTransaction(db,async tx=>{
   const existing=await tx.get(ref);if(existing.exists()){if(existing.data().hash===hash)return;throw Error('Bu set kimliği bulutta farklı içerikle zaten var; mevcut sürüm değiştirilmedi.');}
   tx.set(ref,{id:set.id,label:set.label,recordCount:set.records.length,chunkCount:chunks.length,hash,schemaVersion:1,createdAt:F.serverTimestamp()});
@@ -15,9 +17,11 @@ export async function saveSet(set){
  });
  status('Buluta kaydedildi · '+set.label);return hash;
 }
-export async function loadSets(){
+export const loadSets=()=>loadArchives('pqSets');
+export const loadSnapshots=()=>loadArchives('stateSnapshots');
+async function loadArchives(collectionName){
  if(!isReady())throw Error('İzin verilen hesapla giriş gerekli.');
- const uid=user.uid,docs=await F.getDocs(F.collection(db,'users',uid,'pqSets')),sets=[];
+ const uid=user.uid,docs=await F.getDocs(F.collection(db,'users',uid,collectionName)),sets=[];
  for(const doc of docs.docs){const meta=doc.data();if(meta.id!==doc.id)throw Error('Bulut set kimliği uyuşmuyor.');
  const chunks=await F.getDocs(F.collection(doc.ref,'chunks'));sets.push(await decodeSet(meta,chunks.docs.map(d=>d.data())));}
  return sets;
