@@ -8,23 +8,24 @@ service cloud.firestore {
         && uid == '8vRWNJhlDwhbgMcouhO4kYvK83B3';
     }
     match /users/{uid}/{collectionName}/{setId} {
-      allow read: if owner(uid) && collectionName in ['pqSets','stateSnapshots'];
-      allow create: if owner(uid) && collectionName in ['pqSets','stateSnapshots']
+      allow read: if owner(uid) && collectionName in ['pqSets','stateSnapshots','capArchives'];
+      allow create: if owner(uid) && collectionName in ['pqSets','stateSnapshots','capArchives']
         && request.resource.data.keys().hasOnly(['id','label','recordCount','chunkCount','hash','schemaVersion','createdAt'])
         && request.resource.data.id == setId
         && request.resource.data.label is string
         && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 150
         && request.resource.data.schemaVersion == 1
         && request.resource.data.recordCount is int
-        && request.resource.data.recordCount > 0 && request.resource.data.recordCount <= 5000
+        && request.resource.data.recordCount >= 0 && request.resource.data.recordCount <= 5000
+        && (collectionName == 'capArchives' || request.resource.data.recordCount > 0)
         && request.resource.data.chunkCount is int
         && request.resource.data.chunkCount > 0 && request.resource.data.chunkCount <= 200
         && request.resource.data.hash is string && request.resource.data.hash.size() == 64
         && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
       match /chunks/{chunkId} {
-        allow read: if owner(uid) && collectionName in ['pqSets','stateSnapshots'];
-        allow create: if owner(uid) && collectionName in ['pqSets','stateSnapshots']
+        allow read: if owner(uid) && collectionName in ['pqSets','stateSnapshots','capArchives'];
+        allow create: if owner(uid) && collectionName in ['pqSets','stateSnapshots','capArchives']
           && !exists(/databases/$(database)/documents/users/$(uid)/$(collectionName)/$(setId))
           && getAfter(/databases/$(database)/documents/users/$(uid)/$(collectionName)/$(setId)).data.id == setId
           && request.resource.data.keys().hasOnly(['index','payload'])
