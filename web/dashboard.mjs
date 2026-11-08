@@ -10,7 +10,7 @@ export function buildDashboard(snapshot,set,transition,area=''){
  return {summary:summarize(records),areas:groups(r=>r.area,snapshot.records),ces:groups(r=>definitions.get(r.id).classification,records),records,scenario:transition&&snapshot.pqEdition===transition.fromEdition?removalEffect({...snapshot,records},transition):null};
 }
 export function initDashboard({getSets,onOpenRecords}){
- const container=document.querySelector('#dashboard');container.innerHTML='<div id="dashboardSummary"></div><div id="activityTimeline"></div>';const host=container.querySelector('#dashboardSummary');const activities=initTimeline({host:container.querySelector('#activityTimeline'),getSets});let snapshot=null,transition=null,area='';
+ const container=document.querySelector('#dashboard');container.innerHTML='<div id="dashboardSummary"></div><div id="activityTimeline"></div><div id="dashboardCaps"></div>';const host=container.querySelector('#dashboardSummary');const activities=initTimeline({host:container.querySelector('#activityTimeline'),getSets});let snapshot=null,transition=null,area='';
  function render(){
  host.innerHTML=`<div class="panel"><div class="dash-heading"><div><h2>EI ve ülke sonuçları</h2><p>Seçilen durum görüntüsüne göre genel, alan ve CE bazında sonuçlar.</p></div><button id="dashboardLoad" class="primary">Durum kaydını aç</button></div><div id="dashboardBody"></div></div>`;
  host.querySelector('#dashboardLoad').onclick=onOpenRecords;
@@ -26,5 +26,5 @@ export function initDashboard({getSets,onOpenRecords}){
  else scenario.innerHTML='<p class="muted">Bu PQ sürümü için silme etkisi senaryosu tanımlı değil.</p>';
  host.querySelector('#dashboardArea').onchange=e=>{area=e.target.value;render()};
  }
- render();return {update(next,nextTransition,archives=next?[next]:[]){if(snapshot?.id!==next?.id)area='';snapshot=next;transition=nextTransition;render();activities.update(archives,nextTransition)}};
+ render();return {updateCaps(archives){const node=container.querySelector('#dashboardCaps');node.innerHTML=archives.length?'<div class="panel"><h2>CAP dönemleri</h2><p>CAP kayıtları ve taslak sonuçlar ayrı izlenir. Bu liste ülke EI durumlarını kendiliğinden değiştirmez.</p><div class="table-wrap"><table><thead><tr><th>DÖNEM</th><th>KAYIT</th><th>STATÜ</th><th>PQ SÜRÜMÜ</th><th>NS PQ</th><th>CAP ADIMI</th></tr></thead><tbody>'+archives.map(a=>'<tr><td>'+esc(a.activityPeriod)+'</td><td>'+esc(a.label)+'</td><td>'+esc(a.publicationStatus==='draft'?'TASLAK':'NİHAİ')+'</td><td>'+esc(a.pqEdition)+'</td><td>'+a.findings+'</td><td>'+a.steps+'</td></tr>').join('')+'</tbody></table></div></div>':''},update(next,nextTransition,archives=next?[next]:[]){if(snapshot?.id!==next?.id)area='';snapshot=next;transition=nextTransition;render();activities.update(archives,nextTransition)}};
 }

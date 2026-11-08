@@ -6,6 +6,7 @@ function errorText(e){const messages={'auth/unauthorized-domain':'Bu site alan a
 export function identity(){return isReady()?user.uid:null}
 export function isReady(){return !!(user&&allowedUid&&user.uid===allowedUid)}
 export const saveSet=set=>saveArchive(set,'pqSets');
+export const saveCapArchive=set=>saveArchive(set,'capArchives');
 export const saveSnapshot=set=>saveArchive(set,'stateSnapshots');
 async function saveArchive(set,collectionName){
  if(!isReady())throw Error('Buluta kayıt için izin verilen Google hesabıyla giriş yapın.');
@@ -18,6 +19,7 @@ async function saveArchive(set,collectionName){
  status('Buluta kaydedildi · '+set.label);return hash;
 }
 export const loadSets=()=>loadArchives('pqSets');
+export const loadCapArchives=()=>loadArchives('capArchives');
 export const loadSnapshots=()=>loadArchives('stateSnapshots');
 async function loadArchives(collectionName){
  if(!isReady())throw Error('İzin verilen hesapla giriş gerekli.');
