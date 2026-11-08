@@ -56,6 +56,6 @@ async function init(){try{const script=document.createElement('script');script.s
  }catch(e){$('#importResult').textContent='Kayıt başarısız: '+cloud.errorText(e)+'. Yeni set kaydedilmiş sayılmadı; tekrar deneyebilirsiniz.'}finally{$('#commit').disabled=false}};
  const {initWordUpload}=await import('./word-upload-ui.mjs');wordController=initWordUpload({getSets:()=>sets,selectedSet:current,saveSet:saveNewSet,validate:x=>PQCore.validate(x),isCloudReady:()=>cloud.isReady(),formatRecord:(r,set)=>{const src=set.sources.find(s=>s.area===r.area);return {...r,question:formatText(r,'question',src),guidance:formatText(r,'guidance',src),references:formatText(r,'references',src)}},onSaved:()=>{render();toast('Yeni Word seti kaydedildi.')}});
  const {initDashboard}=await import('./dashboard.mjs');const dashboard=initDashboard({getSets:()=>sets,onOpenRecords:()=>view('versions')});
- const {initHistory}=await import('./pq-history.mjs');initHistory({cloud,getSets:()=>sets,onSnapshotChange:(snapshot,transition)=>dashboard.update(snapshot,transition)});
+ const {initHistory}=await import('./pq-history.mjs');initHistory({cloud,getSets:()=>sets,onSnapshotChange:(snapshot,transition,archives)=>dashboard.update(snapshot,transition,archives)});
  }catch(e){$('#pool').textContent='PQ havuzu açılamadı: '+e.message}}
 init();
